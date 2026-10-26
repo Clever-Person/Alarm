@@ -57,10 +57,10 @@ fun FajrApp(vm: AlarmViewModel = hiltViewModel()) {
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val exactAlarmPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.rescheduleEnabled() }
 
-    MaterialTheme(colorScheme = if (dark) androidx.compose.material3.darkColorScheme(primary = Color(0xFFB7D8CC), secondary = Color(0xFFE7BE87), background = Color(0xFF0B1117), surface = Color(0xFF151E26), onBackground = Color(0xFFE8EEF1), onSurface = Color(0xFFE8EEF1)) else androidx.compose.material3.lightColorScheme(primary = Color(0xFF245F52), secondary = Color(0xFF815A27))) {
+    MaterialTheme(colorScheme = if (dark) androidx.compose.material3.darkColorScheme(primary = Color(0xFFB8E2D1), secondary = Color(0xFFFFC48E), background = Color(0xFF0B1115), surface = Color(0xFF141D22), surfaceVariant = Color(0xFF1D292E), onBackground = Color(0xFFE8F0EC), onSurface = Color(0xFFE8F0EC), onSurfaceVariant = Color(0xFFA5B2B1), outline = Color(0xFF344247)) else androidx.compose.material3.lightColorScheme(primary = Color(0xFF245B4B), secondary = Color(0xFF9A552A), background = Color(0xFFF3F6F3), surface = Color(0xFFFFFFFF), surfaceVariant = Color(0xFFE8EFEB), onSurfaceVariant = Color(0xFF596963))) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = { NavigationBar { NavigationBarItem(selected = tab == Tab.ALARMS, onClick = { tab = Tab.ALARMS }, icon = { Icon(Icons.Default.Alarm, null) }, label = { Text("Alarms") }); NavigationBarItem(selected = tab == Tab.INSIGHTS, onClick = { tab = Tab.INSIGHTS }, icon = { Icon(Icons.Default.BarChart, null) }, label = { Text("Insights") }); NavigationBarItem(selected = tab == Tab.SETTINGS, onClick = { tab = Tab.SETTINGS }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Settings") }) } },
-            floatingActionButton = { if (tab == Tab.ALARMS) FloatingActionButton(onClick = { editor = null; showEditor = true }) { Icon(Icons.Default.Add, "Add alarm") } }) { padding ->
+            bottomBar = { NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) { NavigationBarItem(selected = tab == Tab.ALARMS, onClick = { tab = Tab.ALARMS }, icon = { Icon(Icons.Default.Alarm, null) }, label = { Text("Alarms") }); NavigationBarItem(selected = tab == Tab.INSIGHTS, onClick = { tab = Tab.INSIGHTS }, icon = { Icon(Icons.Default.BarChart, null) }, label = { Text("Insights") }); NavigationBarItem(selected = tab == Tab.SETTINGS, onClick = { tab = Tab.SETTINGS }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Settings") }) } },
+            floatingActionButton = { if (tab == Tab.ALARMS) FloatingActionButton(onClick = { editor = null; showEditor = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = RoundedCornerShape(20.dp)) { Icon(Icons.Default.Add, "Add alarm") } }) { padding ->
             when (tab) {
                 Tab.ALARMS -> AlarmList(alarms, Modifier.padding(padding), timeFormat, onEdit = { editor = it; showEditor = true }, onToggle = { alarm ->
                     if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -82,40 +82,143 @@ fun FajrApp(vm: AlarmViewModel = hiltViewModel()) {
 }
 
 @Composable private fun AlarmList(alarms: List<AlarmEntity>, modifier: Modifier, timeFormat: String, onEdit: (AlarmEntity) -> Unit, onToggle: (AlarmEntity) -> Unit, onDelete: (AlarmEntity) -> Unit) {
-    Column(modifier.fillMaxSize().padding(horizontal = 22.dp)) {
-        Spacer(Modifier.height(24.dp))
-        Text("FAJR ALARM", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, letterSpacing = 3.sp)
-        Text("Wake with purpose.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-        Text("Your morning starts after the mission.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .65f))
-        Spacer(Modifier.height(24.dp))
-        if (alarms.isEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(28.dp)) {
-                Column(Modifier.fillMaxWidth().padding(24.dp)) { Text("A calmer morning begins tonight", style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text("Add an alarm and choose a small mission to get moving.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = .7f)) }
+    val nextAlarm = alarms.filter { it.enabled }.minByOrNull { it.hour * 60 + it.minute }
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(shape = RoundedCornerShape(15.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .16f), modifier = Modifier.size(46.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Alarm, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
+                }
+                Column {
+                    Text("FAJR", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                    Text("Make mornings count", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                }
             }
-        } else LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 100.dp)) {
-            items(alarms, key = { it.id }) { alarm ->
-                Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                val displayTime = if (timeFormat == "24h") String.format(Locale.getDefault(), "%02d:%02d", alarm.hour, alarm.minute) else java.time.LocalTime.of(alarm.hour, alarm.minute).format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
-                                Text(displayTime, fontSize = 42.sp, fontWeight = FontWeight.Light)
-                                Text(alarm.label, style = MaterialTheme.typography.titleMedium)
-                            }
-                            Switch(checked = alarm.enabled, onCheckedChange = { onToggle(alarm) })
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = .15f), shape = CircleShape) { Text("${alarm.mission.replace('_',' ')} · ${alarm.missionTarget}", Modifier.padding(horizontal = 12.dp, vertical = 7.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium) }
-                            Spacer(Modifier.weight(1f))
-                            IconButton(onClick = { onEdit(alarm) }) { Icon(Icons.Default.Edit, "Edit alarm") }
-                            IconButton(onClick = { onDelete(alarm) }) { Icon(Icons.Default.Delete, "Delete alarm") }
-                        }
+        }
+        item {
+            if (nextAlarm != null) NextAlarmCard(nextAlarm, timeFormat)
+            else EmptyAlarmCard()
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Your alarms", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text("${alarms.size} ${if (alarms.size == 1) "alarm" else "alarms"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (alarms.isEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("＋", color = MaterialTheme.colorScheme.primary, fontSize = 25.sp, fontWeight = FontWeight.Light)
+                        Text("Tap the button below to set your first alarm and choose a wake-up mission.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                     }
+                }
+            }
+        } else items(alarms.sortedWith(compareByDescending<AlarmEntity> { it.enabled }.thenBy { it.hour * 60 + it.minute }), key = { it.id }) { alarm ->
+            AlarmCard(alarm, timeFormat, onEdit, onToggle, onDelete)
+        }
+    }
+}
+
+@Composable private fun NextAlarmCard(alarm: AlarmEntity, timeFormat: String) {
+    Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        Box {
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 16.dp).size(76.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .08f), CircleShape))
+            Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 19.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = .16f), shape = CircleShape) {
+                        Text("UP NEXT", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                        Text("ACTIVE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(formatAlarmTime(alarm, timeFormat), fontSize = 58.sp, lineHeight = 62.sp, fontWeight = FontWeight.Light, letterSpacing = (-2).sp)
+                Text(alarm.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .88f))
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = .45f))
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.primary, shape = CircleShape) { Text("${alarm.missionTarget}", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold) }
+                    Text("${missionName(alarm.mission)} mission", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.weight(1f))
+                    Text(repeatSummary(alarm.repeatDays), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
     }
+}
+
+@Composable private fun EmptyAlarmCard() {
+    Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(22.dp)) {
+            Text("A fresh start is waiting", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Text("Set an alarm and pair it with one small action to get out of bed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Choose a time", "Pick a mission", "Start your day").forEachIndexed { index, label ->
+                    if (index > 0) Text("·", color = MaterialTheme.colorScheme.primary)
+                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun AlarmCard(alarm: AlarmEntity, timeFormat: String, onEdit: (AlarmEntity) -> Unit, onToggle: (AlarmEntity) -> Unit, onDelete: (AlarmEntity) -> Unit) {
+    Card(shape = RoundedCornerShape(23.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 17.dp, end = 14.dp, top = 16.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(formatAlarmTime(alarm, timeFormat), fontSize = 38.sp, lineHeight = 42.sp, fontWeight = FontWeight.Light, letterSpacing = (-1).sp, color = if (alarm.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(alarm.label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = alarm.enabled, onCheckedChange = { onToggle(alarm) })
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(repeatSummary(alarm.repeatDays), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                IconButton(onClick = { onEdit(alarm) }, modifier = Modifier.size(38.dp)) { Icon(Icons.Default.Edit, "Edit alarm", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp)) }
+                IconButton(onClick = { onDelete(alarm) }, modifier = Modifier.size(38.dp)) { Icon(Icons.Default.Delete, "Delete alarm", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp)) }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = if (alarm.enabled) .15f else .08f), shape = CircleShape) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(Modifier.size(6.dp).background(if (alarm.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
+                        Text("${missionName(alarm.mission)} · ${alarm.missionTarget}", style = MaterialTheme.typography.labelMedium, color = if (alarm.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (alarm.vibrate) Text("VIBRATE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f), letterSpacing = .6.sp)
+            }
+        }
+    }
+}
+
+private fun formatAlarmTime(alarm: AlarmEntity, timeFormat: String): String = if (timeFormat == "24h") String.format(Locale.getDefault(), "%02d:%02d", alarm.hour, alarm.minute) else LocalTime.of(alarm.hour, alarm.minute).format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+
+private fun missionName(value: String): String = when (value) {
+    "PUSH_UPS" -> "Push-ups"
+    "SHAKE" -> "Shake"
+    "MATH" -> "Math"
+    "TEXT" -> "Read"
+    "STEPS" -> "Steps"
+    "PHOTO" -> "Photo"
+    else -> value.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+}
+
+private fun repeatSummary(value: String): String {
+    val days = value.split(',').mapNotNull(String::toIntOrNull).toSet()
+    if (days.isEmpty()) return "One time"
+    if (days.size == 7) return "Every day"
+    if (days == setOf(1, 2, 3, 4, 5)) return "Weekdays"
+    if (days == setOf(0, 6)) return "Weekends"
+    val labels = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+    return days.sorted().joinToString(" · ") { labels.getOrElse(it) { "" } }
 }
 
 @Composable private fun AlarmEditorDialog(alarm: AlarmEntity?, defaultTarget: Int, is24Hour: Boolean, onDismiss: () -> Unit, onSave: (AlarmEntity) -> Unit) {
